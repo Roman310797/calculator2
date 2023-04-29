@@ -1,61 +1,176 @@
-import java.util.Scanner;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
-class Calculator {
+public class Calculator {
 
     public static void main(String[] args) throws Exception {
-        Scanner scn = new Scanner(System.in);
-        String exp = scn.nextLine();
-        char action;
-        String[] data;
-        if (exp.contains(" + ")) {
-            data = exp.split(" \\+ ");
-            action = '+';
-        } else if (exp.contains(" - ")) {
-            data = exp.split(" - ");
-            action = '-';
-        } else if (exp.contains(" * ")) {
-            data = exp.split(" \\* ");
-            action = '*';
-        } else if (exp.contains(" / ")) {
-            data = exp.split(" / ");
-            action = '/';
-        }else{
-            throw new Exception("Неверный знак");
-        }
-        if (action == '*' || action == '/') {
-            if (data[1].contains("\"")) throw new Exception("действие только с числом");
-        }
-        for (int i = 0; i < data.length; i++) {
-            data[i] = data[i].replace("\"", "");
-        }
-
-        if (action == '+') {
-            printInQuotes(data[0] + data[1]);
-        } else if (action == '*') {
-            int multiplier = Integer.parseInt(data[1]);
-            String result = "";
-            for (int i = 0; i < multiplier; i++) {
-                result+=data[0];
-            }
-            printInQuotes(result);
-        } else if (action == '-') {
-            int index = data[0].indexOf(data[1]);
-            if(index == -1){
-                printInQuotes(data[0]);
-            }else{
-                String result = data[0].substring(0, index);
-                result+=data[0].substring(index+data[1].length());
-                printInQuotes(result);
-            }
-        }else{
-            int newLen = data[0].length()/Integer.parseInt(data[1]);
-            String result = data[0].substring(0,newLen);
-            printInQuotes(result);
-        }
-
+        StringCalculator calculator = new StringCalculator();
+        Command command = calculator.readArgumentsAndValidate();
+        System.out.println(calculator.performCommand(command));
     }
-    static void printInQuotes(String text){
-        System.out.println("\""+text+"\"");
+
+    private static class Command {
+
+        private final String firstArgument;
+        private final String operation;
+        private final String secondArgument;
+
+        public Command(String firstArgument, String operation, String secondArgument) throws Exception {
+            this.firstArgument = firstArgument;
+            this.operation = operation;
+            this.secondArgument = secondArgument;
+            isValid();
+        }
+
+        public boolean isFirstArgumentString() {
+            return firstArgument.charAt(0) == '\"' && firstArgument.charAt(firstArgument.length() - 1) == '\"';
+        }
+
+        public boolean isSecondArgumentString() {
+            return secondArgument.charAt(0) == '\"' && secondArgument.charAt(secondArgument.length() - 1) == '\"';
+        }
+
+        public boolean isSecondArgumentNumber() {
+            try {
+                int number = Integer.parseInt(secondArgument);
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        public boolean isFirstArgumentNumber() {
+            try {
+                int number = Integer.parseInt(firstArgument);
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
+        public void isValid() throws Exception {
+            if (isFirstArgumentNumber()) {
+                throw new Exception("Аргумент не может быть числом");
+            } else if (!isFirstArgumentString()) {
+                throw new Exception("Введите первый верный аргумент");
+            } else if (!isSecondArgumentString() && !isSecondArgumentNumber()) {
+                throw new Exception("Введите второй верный аргумент");
+            } else if (isSecondArgumentNumber() && (Integer.parseInt(secondArgument) < 1 || Integer.parseInt(secondArgument) > 10)) {
+                throw new Exception("Число должно быть от 1 до 10 включительно");
+            } else if (isFirstArgumentString() && firstArgument.length() - 2 > 10) {
+                throw new Exception("Длина строки не может превышать 10 символов");
+            } else if (isSecondArgumentString() && secondArgument.length() - 2 > 10) {
+                throw new Exception("Длина строки не может превышать 10 символов");
+            } else if (isSecondArgumentNumber() && Float.parseFloat(secondArgument) != (Integer.parseInt(secondArgument) * 1.0)) {
+                throw new Exception("Число должно быть целым числом");
+            }
+        }
+
+        public boolean isOperationAddition() {
+            return operation.equals("+");
+        }
+
+        public boolean isOperationSubtraction() {
+            return operation.equals("-");
+        }
+
+        public boolean isOperationMultiplication() {
+            return operation.equals("*");
+        }
+
+        public boolean isOperationDivision() {
+            return operation.equals("/");
+        }
+
+        public String getFirstArgument() {
+            return firstArgument;
+        }
+
+        public String getSecondArgument() {
+            return secondArgument;
+        }
+    }
+
+    private static class StringCalculator {
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+
+        public StringCalculator() {
+        }
+
+        public Command readArgumentsAndValidate() throws Exception {
+            Command command;
+            String line = reader.readLine();
+            String[] elements = new String[3];
+            if (line.contains(" + ")) {
+                int index = line.indexOf(" + ");
+                elements[0] = line.substring(0, index);
+                elements[1] = "+";
+                elements[2] = line.substring(index + 3);
+            } else if (line.contains(" - ")) {
+                int index = line.indexOf(" - ");
+                elements[0] = line.substring(0, index);
+                elements[1] = "-";
+                elements[2] = line.substring(index + 3);
+            } else if (line.contains(" * ")) {
+                int index = line.indexOf(" * ");
+                elements[0] = line.substring(0, index);
+                elements[1] = "*";
+                elements[2] = line.substring(index + 3);
+            } else if (line.contains(" / ")) {
+                int index = line.indexOf(" / ");
+                elements[0] = line.substring(0, index);
+                elements[1] = "/";
+                elements[2] = line.substring(index + 3);
+            } else {
+                throw new Exception("Неверная операция");
+            }
+            command = new Command(elements[0].trim(), elements[1].trim(), elements[2].trim());
+            return command;
+        }
+
+        public String performCommand(Command command) throws Exception {
+
+            String f = trimQuotes(command.getFirstArgument());
+            String s = command.isSecondArgumentString() ? trimQuotes(command.getSecondArgument()) : command.getSecondArgument();
+
+            if (command.isOperationAddition() && command.isFirstArgumentString() && command.isSecondArgumentString()) {
+                return addQuotes(trim40(f + s));
+            } else if (command.isOperationSubtraction() && command.isFirstArgumentString() && command.isSecondArgumentString()) {
+                if (f.contains(s)) {
+                    return addQuotes(f.replaceFirst(s, ""));
+                } else {
+                    return addQuotes(f);
+                }
+            } else if (command.isOperationMultiplication() && command.isFirstArgumentString() && command.isSecondArgumentNumber()) {
+                String new_str = "";
+                for (int i = 0; i < Integer.parseInt(s); ++i) {
+                    new_str += f;
+                }
+                return addQuotes(trim40(new_str));
+            } else if (command.isOperationDivision() && command.isFirstArgumentString() && command.isSecondArgumentNumber()) {
+                int new_length = f.length() / Integer.parseInt(s);
+                return addQuotes(f.substring(0, new_length));
+            } else {
+                throw new Exception("Калькулятор не поддерживает эту операцию");
+            }
+        }
+
+        public String trim40(String str) {
+            if (str.length() > 40) {
+                return str.substring(0, 40) + "...";
+            }
+            return str;
+        }
+
+        public String trimQuotes(String str) {
+            return str.substring(1, str.length() - 1);
+        }
+
+        public String addQuotes(String str) {
+            return "\"" + str + "\"";
+        }
     }
 }
+
 
